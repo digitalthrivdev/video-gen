@@ -39,3 +39,55 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Prisma generated client
+/lib/generated/prisma
+
+# Deployment and setup documentation (optional - uncomment to exclude)
+START_HERE.md
+QUICK_DEPLOY.md
+DEPLOYMENT.md
+VERCEL_DEPLOYMENT_CHECKLIST.md
+DEPLOYMENT_SUMMARY.md
+VERCEL_READY.md
+DATABASE_SETUP.md
+NEXTAUTH_SETUP.md
+lib/IMAGEKIT_SETUP.md
+lib/README.md
+lib/api/README.md
+
+# Test files
+test-image.png
+test-*.png
+test-*.jpg
+*.test.local.*
+
+# MCP configuration (personal)
+.mcp.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+*~

@@ -1,0 +1,53 @@
+# Vercel ignore file
+# Files and directories that should not be uploaded to Vercel
+
+# Dependencies
+node_modules/
+
+# Testing
+coverage/
+
+# Next.js
+.next/
+out/
+
+# Environment files (use Vercel's environment variables instead)
+.env*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Database
+prisma/*.db
+prisma/*.db-journal
+
+# Temporary files
+*.tmp
+*.temp
+
+# Build artifacts
+*.tsbuildinfo
+
+# Generated Prisma client (will be regenerated)
+lib/generated/
+
+# Test files
+test-image.png
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+

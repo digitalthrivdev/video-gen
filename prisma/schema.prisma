@@ -1,0 +1,123 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(uuid()) @db.VarChar(255)
+  email         String    @unique
+  name          String?   @default("User") @db.VarChar(255)
+  tokens        Int       @default(100)
+  isActive      Boolean   @default(true)
+  isDeleted     Boolean   @default(false)
+  isVerified    Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          String    @default("user") @db.VarChar(255)
+  image         String?   @db.VarChar(500)
+  emailVerified DateTime?
+  accounts      Account[]
+  sessions      Session[]
+  videos        Video[]
+  orders        Order[]
+}
+
+model Video {
+  id          String   @id @default(uuid()) @db.VarChar(255)
+  userId      String   @db.VarChar(255)
+  prompt      String   @db.VarChar(1000)
+  aspectRatio String   @db.VarChar(255)
+  seed        Int      @default(0)
+  imageUrl    String?  @db.VarChar(500)
+  videoUrl    String   @db.VarChar(500)
+  videoId     String   @db.VarChar(255)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  status      String   @default("pending") @db.VarChar(50)
+  tokensUsed  Int      @default(1)
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @db.VarChar(255)
+  type              String  @db.VarChar(255)
+  provider          String  @db.VarChar(255)
+  providerAccountId String  @db.VarChar(255)
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String? @db.VarChar(255)
+  scope             String? @db.VarChar(255)
+  id_token          String?
+  session_state     String? @db.VarChar(255)
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @db.VarChar(255)
+  userId       String   @db.VarChar(255)
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String   @db.VarChar(255)
+  token      String   @unique @db.VarChar(255)
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model TokenPackage {
+  id          String   @id @default(uuid()) @db.VarChar(255)
+  name        String   @db.VarChar(255)
+  description String?  @db.VarChar(500)
+  tokens      Int
+  price       Float
+  currency    String   @default("INR") @db.VarChar(10)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
+}
+
+model Order {
+  id            String        @id @default(uuid()) @db.VarChar(255)
+  userId        String        @db.VarChar(255)
+  packageId     String        @db.VarChar(255)
+  orderId       String        @unique @db.VarChar(255) // Cashfree order ID
+  planName      String        @db.VarChar(255)
+  amount        Float
+  currency      String        @default("INR") @db.VarChar(10)
+  status        String        @default("pending") @db.VarChar(50)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  user          User          @relation(fields: [userId], references: [id])
+  package       TokenPackage  @relation(fields: [packageId], references: [id])
+  payment       Payment?
+}
+
+model Payment {
+  id            String    @id @default(uuid()) @db.VarChar(255)
+  orderId       String    @unique @db.VarChar(255) // Cashfree order ID for reference
+  orderInternalId String  @unique @db.VarChar(255) // Internal order ID for foreign key
+  amount        Float
+  currency      String    @default("INR") @db.VarChar(10)
+  status        String    @db.VarChar(50)
+  paymentMethod String?   @db.VarChar(100)
+  paymentTime   DateTime?
+  failureReason String?   @db.VarChar(500)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  order         Order     @relation(fields: [orderInternalId], references: [id])
+}
