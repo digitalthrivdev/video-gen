@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Debug logging
     console.log('Cashfree Payment Link API Request:', {
-      url: `https://${cashfreeEnvironment === 'production' ? 'api' : 'sandbox.cashfree.com'}/pg/links`,
+      url: `https://${cashfreeEnvironment === 'production' ? 'api.cashfree.com' : 'sandbox.cashfree.com'}/pg/links`,
       headers: {
         'Content-Type': 'application/json',
         'x-api-version': '2025-01-01',
@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
     });
 
     const cashfreeResponse = await fetch(
-      `https://${cashfreeEnvironment === 'production' ? 'api' : 'sandbox.cashfree.com'}/pg/links`,
+      `https://${cashfreeEnvironment === 'production' ? 'api.cashfree.com' : 'sandbox.cashfree.com'}/pg/links`,
       {
         method: 'POST',
         headers: {

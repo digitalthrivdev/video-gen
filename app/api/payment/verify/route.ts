@@ -36,8 +36,14 @@ export async function POST(request: NextRequest) {
     let paymentMethod = null;
     let failureReason = null;
 
+    // Get Cashfree environment
+    const cashfreeEnvironment = process.env.CASHFREE_ENVIRONMENT || 'sandbox';
+    const cashfreeBaseUrl = cashfreeEnvironment === 'production' 
+      ? 'https://api.cashfree.com' 
+      : 'https://sandbox.cashfree.com';
+
     try {
-      const cashfreeResponse = await fetch(`https://sandbox.cashfree.com/pg/links/${orderId}`, {
+      const cashfreeResponse = await fetch(`${cashfreeBaseUrl}/pg/links/${orderId}`, {
         method: 'GET',
         headers: {
           'x-api-version': '2023-08-01',
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
         // If payment is successful, get payment details
         if (paymentStatus === 'paid') {
           // Fetch payment details
-          const paymentResponse = await fetch(`https://sandbox.cashfree.com/pg/orders/${orderId}/payments`, {
+          const paymentResponse = await fetch(`${cashfreeBaseUrl}/pg/orders/${orderId}/payments`, {
             method: 'GET',
             headers: {
               'x-api-version': '2023-08-01',
