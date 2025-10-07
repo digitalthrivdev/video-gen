@@ -1,5 +1,5 @@
 {
-  "buildCommand": "prisma generate && prisma migrate deploy && next build",
+  "buildCommand": "prisma generate && prisma migrate deploy --accept-data-loss && next build",
   "installCommand": "pnpm install",
   "framework": "nextjs",
   "regions": ["bom1"],
@@ -9,6 +9,7 @@
     }
   },
   "env": {
+    "LOG_LEVEL": "INFO",
     "PRISMA_LOG_QUERIES": "false"
   }
 }

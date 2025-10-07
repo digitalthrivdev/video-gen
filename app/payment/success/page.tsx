@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { CheckCircle, Loader2, AlertCircle } from "lucide-react";
@@ -33,7 +33,7 @@ interface PaymentVerificationResult {
   message?: string;
 }
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
@@ -234,5 +234,23 @@ export default function PaymentSuccessPage() {
         </div>
       </Card>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <Card className="p-8 max-w-md w-full mx-4">
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-600" />
+            <h2 className="text-xl font-semibold mb-2">Loading...</h2>
+            <p className="text-gray-600 dark:text-gray-400">Please wait...</p>
+          </div>
+        </Card>
+      </div>
+    }>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }

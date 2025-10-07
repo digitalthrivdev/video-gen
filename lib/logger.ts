@@ -26,10 +26,26 @@ class Logger {
     this.isProduction = process.env.NODE_ENV === 'production';
     this.isDevelopment = process.env.NODE_ENV === 'development';
     
-    // Set log level based on environment
-    this.logLevel = this.isProduction 
-      ? LogLevel.INFO  // Production: Only INFO, WARN, ERROR
-      : LogLevel.DEBUG; // Development: All levels
+    // Set log level based on environment variable or default
+    this.logLevel = this.getLogLevelFromEnv();
+  }
+
+  private getLogLevelFromEnv(): LogLevel {
+    const envLogLevel = process.env.LOG_LEVEL?.toUpperCase();
+    
+    switch (envLogLevel) {
+      case 'ERROR':
+        return LogLevel.ERROR;
+      case 'WARN':
+        return LogLevel.WARN;
+      case 'INFO':
+        return LogLevel.INFO;
+      case 'DEBUG':
+        return LogLevel.DEBUG;
+      default:
+        // Default based on environment
+        return this.isProduction ? LogLevel.INFO : LogLevel.DEBUG;
+    }
   }
 
   private formatLogEntry(entry: LogEntry): string {

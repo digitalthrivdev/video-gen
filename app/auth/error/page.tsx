@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertCircle, VideoIcon } from "lucide-react";
 import Link from "next/link";
+import { Suspense } from "react";
 
 const errorMessages: Record<string, string> = {
   Configuration: "There is a problem with the server configuration.",
@@ -13,7 +14,7 @@ const errorMessages: Record<string, string> = {
   Default: "An error occurred during authentication.",
 };
 
-export default function AuthErrorPage() {
+function ErrorContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
 
@@ -79,5 +80,13 @@ export default function AuthErrorPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthErrorPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <ErrorContent />
+    </Suspense>
   );
 }
