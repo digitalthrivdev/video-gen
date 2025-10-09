@@ -44,19 +44,7 @@ next-env.d.ts
 /lib/generated/prisma
 
 # Deployment and setup documentation (optional - uncomment to exclude)
-START_HERE.md
-QUICK_DEPLOY.md
-DEPLOYMENT.md
-VERCEL_DEPLOYMENT_CHECKLIST.md
-DEPLOYMENT_SUMMARY.md
-VERCEL_READY.md
-DATABASE_SETUP.md
-NEXTAUTH_SETUP.md
-LOGGING.md
-MIGRATION_FIX_GUIDE.md
-ISSUES_FOUND_AND_FIXED.md
-DEPLOYMENT_READY.md
-FIX_MIGRATION.sql
+docs/
 lib/IMAGEKIT_SETUP.md
 lib/README.md
 lib/api/README.md

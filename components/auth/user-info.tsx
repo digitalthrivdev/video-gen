@@ -16,7 +16,7 @@ export function UserInfoBadge() {
   return (
     <div className="hidden sm:flex items-center gap-2 mr-3">
       {typeof tokens === "number" && (
-        <Link href="/billing">
+        <Link href="/credits">
           <Badge 
             variant="secondary" 
             className="cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"

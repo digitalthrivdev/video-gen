@@ -199,6 +199,49 @@ export async function generateSingleImage(
 }
 
 /**
+ * Generate an image from another image (image-to-image editing)
+ * Uses FAL AI's Nano Banana Edit model
+ * @param prompt - Text prompt for image transformation
+ * @param imageUrl - URL of the reference image
+ * @param aspectRatio - Aspect ratio for the output image
+ * @returns Promise with generated image URL
+ */
+export async function generateImageFromImage(
+  prompt: string,
+  imageUrl: string,
+  aspectRatio: '16:9' | '9:16' | '1:1' = '1:1'
+): Promise<string> {
+  const requestId = generateRequestId();
+  
+  return await logApiCall('FAL AI Image-to-Image Generation', async () => {
+    const result = await fal.subscribe("fal-ai/nano-banana/edit", {
+      input: {
+        prompt,
+        image_urls: [imageUrl], // nano-banana/edit expects an array
+        num_images: 1,
+        output_format: 'jpeg',
+        aspect_ratio: aspectRatio,
+        sync_mode: true
+      },
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === "IN_PROGRESS") {
+          update.logs?.map((log) => log.message).forEach((message) => {
+            logger.debug('FAL AI Image-to-Image Generation Log', { message, requestId });
+          });
+        }
+      },
+    });
+
+    if (!result.data?.images?.[0]?.url) {
+      throw new Error('No images generated from image-to-image');
+    }
+
+    return result.data.images[0].url;
+  }, requestId);
+}
+
+/**
  * Validate FAL API configuration
  * @returns Promise with validation result
  */

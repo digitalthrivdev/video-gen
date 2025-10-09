@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Video Generation Platform
 
-## Getting Started
+AI-powered video and image generation platform built with Next.js, FAL AI, and Google Veo3.
 
-First, run the development server:
+## 🚀 Quick Start
+
+1. **Setup**: See [docs/START_HERE.md](docs/START_HERE.md)
+2. **Deploy**: See [docs/QUICK_DEPLOY.md](docs/QUICK_DEPLOY.md)
+
+## 📚 Documentation
+
+All documentation is organized in the [`docs/`](docs/) folder:
+
+- **📖 [Documentation Index](docs/INDEX.md)** - Browse all documentation
+- **🚀 [Deployment Guide](docs/DEPLOYMENT.md)** - Deploy to production
+- **🗄️ [Database Setup](docs/DATABASE_SETUP.md)** - Configure database
+- **🔐 [Auth Setup](docs/NEXTAUTH_SETUP.md)** - Configure authentication
+- **🐛 [Troubleshooting](docs/ISSUES_FOUND_AND_FIXED.md)** - Common issues
+
+## ✨ Features
+
+- **Video Generation**: AI-powered video creation using Google Veo3
+- **Image Generation**: Text-to-image with FAL AI Nano Banana
+- **Image-to-Image**: Transform images with AI guidance
+- **Token System**: Credit-based usage with Cashfree payments
+- **Real-Time Pricing**: Database-driven package management
+- **Authentication**: Secure login with NextAuth (Google OAuth)
+
+## 🛠️ Tech Stack
+
+- **Framework**: Next.js 15 (App Router)
+- **Database**: PostgreSQL (Prisma ORM)
+- **Auth**: NextAuth.js
+- **AI**: FAL AI, Google Veo3
+- **CDN**: ImageKit
+- **Payments**: Cashfree
+- **Deployment**: Vercel
+
+## 🔧 Environment Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+# Install dependencies
+pnpm install
+
+# Setup database
+npx prisma generate
+npx prisma db push
+npx prisma db seed
+
+# Run development server
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📖 Key Documentation
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Topic | Documentation |
+|-------|---------------|
+| Getting Started | [START_HERE.md](docs/START_HERE.md) |
+| Deployment | [DEPLOYMENT.md](docs/DEPLOYMENT.md) |
+| Database | [DATABASE_SETUP.md](docs/DATABASE_SETUP.md) |
+| Security | [SECURITY_FIX_PAYMENT.md](docs/SECURITY_FIX_PAYMENT.md) |
+| Features | [IMAGE_GENERATION_FEATURE.md](docs/IMAGE_GENERATION_FEATURE.md) |
+| Caching | [NO_CACHE_CONFIGURATION.md](docs/NO_CACHE_CONFIGURATION.md) |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🔒 Security
 
-## Learn More
+- Server-side pricing validation
+- Database-driven package management
+- Secure payment processing
+- Multi-layer security checks
+- Audit logging
 
-To learn more about Next.js, take a look at the following resources:
+## 📦 Project Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+├── app/              # Next.js app directory
+├── components/       # React components
+├── lib/              # Utilities and configurations
+├── prisma/           # Database schema and migrations
+├── docs/             # 📚 All documentation files
+└── public/           # Static assets
+```
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+For detailed documentation, see the [`docs/`](docs/) folder or start with the [Documentation Index](docs/INDEX.md).

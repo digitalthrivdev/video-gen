@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getPackageById, validatePackageAmount } from "@/lib/packages";
+
+// Force dynamic - always fetch fresh package data from database
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +33,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: "Order not found" 
       }, { status: 404 });
+    }
+
+    // SECURITY: Validate order amount against database package configuration
+    // This prevents processing of tampered orders
+    const isValidAmount = await validatePackageAmount(order.packageId, order.amount);
+    
+    if (!isValidAmount) {
+      console.error('SECURITY ALERT: Order amount mismatch!', {
+        orderId: order.orderId,
+        packageId: order.packageId,
+        orderAmount: order.amount,
+        userId: session.user.id
+      });
+      
+      // Mark order as failed due to security violation
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { status: 'failed' }
+      });
+      
+      return NextResponse.json({ 
+        error: "Security validation failed: Order amount does not match package price" 
+      }, { status: 400 });
+    }
+
+    // SECURITY: Get authoritative token amount from database
+    const pkg = await getPackageById(order.packageId);
+    if (!pkg) {
+      return NextResponse.json({ 
+        error: "Package configuration not found" 
+      }, { status: 400 });
     }
 
     // Fetch payment status from Cashfree
@@ -109,7 +144,7 @@ export async function POST(request: NextRequest) {
           orderId: order.orderId,
           status: order.status,
           packageName: order.planName,
-          tokensAdded: order.package?.tokens || 0
+          tokensAdded: pkg.tokens // Use server-config tokens
         },
         user: {
           tokens: (await prisma.user.findUnique({
@@ -135,7 +170,7 @@ export async function POST(request: NextRequest) {
     });
 
     // If payment is successful, add tokens to user
-    if (status === 'success' && order.package) {
+    if (status === 'success') {
       await prisma.$transaction(async (tx) => {
         // Update order status
         await tx.order.update({
@@ -143,15 +178,22 @@ export async function POST(request: NextRequest) {
           data: { status: 'completed' }
         });
 
-        // Add tokens to user
+        // SECURITY: Use server-validated token amount, not database or client values
         await tx.user.update({
           where: { id: session.user.id },
           data: {
             tokens: {
-              increment: order.package.tokens
+              increment: pkg.tokens // Use server-config tokens
             }
           }
         });
+      });
+
+      console.log('Tokens added successfully:', {
+        orderId: order.orderId,
+        userId: session.user.id,
+        tokensAdded: pkg.tokens,
+        packageId: pkg.id
       });
     } else {
       // Update order status to failed
@@ -184,7 +226,7 @@ export async function POST(request: NextRequest) {
         orderId: order.orderId,
         status: order.status,
         packageName: order.planName,
-        tokensAdded: status === 'success' ? (order.package?.tokens || 0) : 0
+        tokensAdded: status === 'success' ? pkg.tokens : 0
       },
       user: {
         tokens: updatedUser?.tokens || 0

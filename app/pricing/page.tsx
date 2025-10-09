@@ -46,52 +46,36 @@ function BillingPageContent() {
   const [processingPayment, setProcessingPayment] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Token packages data
-  const tokenPackages: TokenPackage[] = [
-    {
-      id: "starter",
-      name: "Starter",
-      description: "Perfect for trying out video generation",
-      tokens: 10,
-      price: 150,
-      currency: "INR",
-      isActive: true
-    },
-    {
-      id: "growth",
-      name: "Growth",
-      description: "Great for content creators and small businesses",
-      tokens: 50,
-      price: 650,
-      currency: "INR",
-      isActive: true
-    },
-    {
-      id: "pro",
-      name: "Pro",
-      description: "Best value for regular users",
-      tokens: 120,
-      price: 1440,
-      currency: "INR",
-      isActive: true
-    },
-    {
-      id: "agency",
-      name: "Agency",
-      description: "For heavy usage and teams",
-      tokens: 300,
-      price: 3300,
-      currency: "INR",
-      isActive: true
-    }
-  ];
-
+  // Fetch packages from API (always fresh, no cache)
   useEffect(() => {
+    const fetchPackages = async () => {
+      try {
+        const response = await fetch('/api/packages', {
+          cache: 'no-store', // Never cache - always fetch fresh from database
+          headers: {
+            'Cache-Control': 'no-cache',
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setPackages(data.packages || []);
+        } else {
+          console.error('Failed to fetch packages');
+          setError('Failed to load pricing packages. Please refresh the page.');
+        }
+      } catch (error) {
+        console.error('Error fetching packages:', error);
+        setError('Failed to load pricing packages. Please refresh the page.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPackages();
+    
     if (session?.user?.id) {
       fetchPaymentHistory();
     }
-    setPackages(tokenPackages);
-    setLoading(false);
   }, [session]);
 
   // Redirect to payment success page if order_id is present
@@ -162,6 +146,8 @@ function BillingPageContent() {
     setError(null);
 
     try {
+      // SECURITY: Only send packageId to server
+      // Server will validate and use authoritative pricing/token values
       const response = await fetch('/api/payment/create-order', {
         method: 'POST',
         headers: {
@@ -169,11 +155,9 @@ function BillingPageContent() {
           'Authorization': `Bearer ${session.user.id}`
         },
         body: JSON.stringify({
-          packageId: pkg.id,
-          packageName: pkg.name,
-          tokens: pkg.tokens,
-          amount: pkg.price,
-          currency: pkg.currency
+          packageId: pkg.id
+          // Don't send packageName, tokens, amount, or currency
+          // Server will get these from secure configuration
         })
       });
 

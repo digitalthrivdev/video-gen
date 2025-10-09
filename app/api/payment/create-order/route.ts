@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getPackageById } from "@/lib/packages";
 import crypto from 'crypto';
+
+// Force dynamic - always fetch fresh package data from database
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,28 +16,53 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { packageId, packageName, tokens, amount, currency = "INR" } = body;
+    const { packageId } = body;
 
-    if (!packageId || !packageName || !tokens || !amount) {
+    // SECURITY: Only accept packageId from client
+    // All other values (price, tokens) come from server-side configuration
+    if (!packageId || typeof packageId !== 'string') {
       return NextResponse.json({ 
-        error: "Missing required fields: packageId, packageName, tokens, amount" 
+        error: "Invalid or missing packageId" 
       }, { status: 400 });
     }
+
+    // SECURITY: Get package details from database
+    // This prevents client from manipulating prices or token amounts
+    const pkg = await getPackageById(packageId);
+    
+    if (!pkg) {
+      return NextResponse.json({ 
+        error: "Invalid package or package not available" 
+      }, { status: 400 });
+    }
+
+    // Use server-validated values ONLY from database
+    const { name: packageName, tokens, price: amount, currency } = pkg;
 
     // Generate unique order ID
     const orderId = `order_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
 
-    // Create order in database
+    // Create order in database with server-validated values
     const order = await prisma.order.create({
       data: {
         userId: session.user.id,
         packageId: packageId,
         orderId: orderId,
         planName: packageName,
-        amount: amount,
+        amount: amount, // Server-validated amount from package config
         currency: currency,
         status: "pending"
       }
+    });
+
+    // Log package info for audit trail
+    console.log('Order created with server-validated package:', {
+      orderId,
+      packageId,
+      packageName,
+      tokens,
+      amount,
+      userId: session.user.id
     });
 
     // Cashfree configuration

@@ -1,451 +1,305 @@
 "use client";
 
-import {  useMemo, useState } from "react";
-import { Image, Sparkles, Monitor, Smartphone } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Video, Image as ImageIcon, CreditCard, TrendingUp, Sparkles, ArrowRight, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { VideoCarousel } from "@/components/samples/video-carousel";
+import { Card } from "@/components/ui/card";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 
-const page = () => {
-  const [aspectRatio, setAspectRatio] = useState<"16:9" | "9:16">("16:9");
-  const [prompt, setPrompt] = useState("");
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [taskId, setTaskId] = useState<string | null>(null);
-  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(
-    null
-  );
-  const [generationProgress, setGenerationProgress] = useState(0);
-  const [generationStatus, setGenerationStatus] = useState<string>("");
+interface Stats {
+  totalVideos: number;
+  totalImages: number;
+  tokensUsed: number;
+  currentTokens: number;
+}
 
-  const sampleVideos = useMemo(
-    () => [
-      "https://file.aiquickdraw.com/tool-page/section-images/1749261554953b6uur7c1.mp4",
-      "https://file.aiquickdraw.com/tool-page/section-images/17492615693187gxnrlz3.mp4",
-      "https://file.aiquickdraw.com/tool-page/section-images/1749261582181vu4u218v.mp4",
-    ],
-    []
-  );
+export default function HomePage() {
+  const { data: session, status } = useSession();
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      console.log("File selected:", file.name, file.type, file.size);
-      setSelectedImage(file);
-
-      // Create preview URL
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        console.log("FileReader result length:", result?.length);
-        setImagePreview(result);
-      };
-      reader.onerror = () => {
-        console.error("FileReader error");
-      };
-      reader.readAsDataURL(file);
+  useEffect(() => {
+    if (session?.user) {
+      fetchStats();
+    } else {
+      setLoading(false);
     }
-  };
+  }, [session]);
 
-  const clearImage = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-  };
-
-  const handleGenerate = async () => {
+  const fetchStats = async () => {
     try {
-      setGeneratedVideoUrl(null);
-      setIsGenerating(true);
-      setGenerationProgress(0);
-      setGenerationStatus("Starting generation...");
+      const [videosRes, imagesRes] = await Promise.all([
+        fetch('/api/videos/list'),
+        fetch('/api/images/list')
+      ]);
 
-      let imageUrl: string | undefined = undefined;
+      const videosData = await videosRes.json();
+      const imagesData = await imagesRes.json();
 
-      // Upload image to ImageKit if one is selected
-      if (selectedImage) {
-        setGenerationStatus("Uploading image...");
-        setGenerationProgress(5);
-        console.log("Uploading image to ImageKit...", selectedImage.name);
-        const formData = new FormData();
-        formData.append("file", selectedImage);
-        formData.append("fileName", selectedImage.name);
+      const tokensUsed = 
+        (videosData.videos || []).reduce((sum: number, v: any) => sum + (v.tokensUsed || 0), 0) +
+        (imagesData.images || []).reduce((sum: number, i: any) => sum + (i.tokensUsed || 0), 0);
 
-        const uploadRes = await fetch("/api/upload/image", {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!uploadRes.ok) {
-          const errorData = await uploadRes.json();
-          throw new Error(errorData?.error || "Failed to upload image");
-        }
-
-        const uploadData = await uploadRes.json();
-        imageUrl = uploadData.url;
-        console.log("Image uploaded successfully:", imageUrl);
-      }
-
-      setGenerationStatus("Sending request to AI...");
-      setGenerationProgress(10);
-
-      const res = await fetch("/api/video/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt,
-          imageUrl,
-          aspectRatio,
-          model: "veo3_fast",
-          enableFallback: true,
-          enableTranslation: true,
-        }),
+      setStats({
+        totalVideos: videosData.pagination?.total || 0,
+        totalImages: imagesData.pagination?.total || 0,
+        tokensUsed,
+        currentTokens: (session?.user as any).tokens || 0
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (res.status === 402) {
-          throw new Error(
-            "Insufficient tokens! You need at least 10 tokens to generate a video. Please contact support to get more tokens."
-          );
-        } else if (res.status === 401) {
-          throw new Error("Please sign in to generate videos.");
-        } else {
-          throw new Error(data?.error || "Failed to start generation");
-        }
-      }
-
-      setTaskId(data.taskId);
-      setGenerationStatus("Video generation started...");
-      setGenerationProgress(15);
-
-      // Polling loop with progress simulation
-      const start = Date.now();
-      const timeoutMs = 5 * 60 * 1000; // 5 minutes
-      const intervalMs = 10000; // 10 seconds
-      const totalDuration = 3 * 60 * 1000; // 3 minutes for progress simulation
-      let done = false;
-      let pollCount = 0;
-
-      // Wait a bit before first check to allow task to be processed
-      await new Promise((r) => setTimeout(r, 2000));
-
-      while (!done && Date.now() - start < timeoutMs) {
-        pollCount++;
-        console.log(
-          "Checking video status...",
-          data.taskId,
-          `(poll ${pollCount})`
-        );
-
-        // Simulate progress based on time elapsed (up to 90% before completion)
-        const elapsed = Date.now() - start;
-        const simulatedProgress = Math.min(
-          15 + (elapsed / totalDuration) * 75,
-          90
-        );
-        setGenerationProgress(Math.round(simulatedProgress));
-
-        const detailsRes = await fetch(
-          `/api/video/details?taskId=${encodeURIComponent(data.taskId)}`
-        );
-        const details = await detailsRes.json();
-
-        if (!detailsRes.ok) {
-          console.error("Details fetch failed:", details);
-          throw new Error(details?.error || "Failed to fetch details");
-        }
-
-        const status = details?.data?.status;
-        const url = details?.data?.videoUrl;
-
-        if (status === "completed" && url) {
-          setGenerationProgress(100);
-          setGenerationStatus("Video completed!");
-          setGeneratedVideoUrl(url);
-          done = true;
-        } else if (status === "failed") {
-          throw new Error("Video generation failed");
-        } else {
-          // Update status based on progress
-          if (simulatedProgress < 30) {
-            setGenerationStatus("Processing your request...");
-          } else if (simulatedProgress < 60) {
-            setGenerationStatus("AI is creating your video...");
-          } else if (simulatedProgress < 90) {
-            setGenerationStatus("Finalizing video details...");
-          } else {
-            setGenerationStatus("Almost done...");
-          }
-        }
-
-        if (!done) {
-          await new Promise((r) => setTimeout(r, intervalMs));
-        }
-      }
-
-      if (!generatedVideoUrl && Date.now() - start >= timeoutMs) {
-        throw new Error("Video generation timed out");
-      }
-    } catch (e) {
-      console.error(e);
-      alert((e as Error).message);
+    } catch (error) {
+      console.error('Error fetching stats:', error);
     } finally {
-      setIsGenerating(false);
-      setGenerationProgress(0);
-      setGenerationStatus("");
+      setLoading(false);
     }
   };
 
-  return (
-    <>
-      <div className="min-h-screen flex flex-col pb-6 pt-20">
-        <div className="flex lg:flex-row flex-col items-center justify-center">
-          <div className="flex-1 flex flex-col justify-center w-full min-w-0">
-            <div className="max-w-4xl w-full text-center mx-auto px-4 sm:px-6 lg:px-8">
-              <h1 className="text-3xl font-bold text-gray-800 sm:text-4xl dark:text-white">
-                Welcome to Vimeo AI
+  // Landing page for non-logged in users
+  if (status === "unauthenticated" || !session) {
+    return (
+      <div className="min-h-screen">
+        {/* Hero Section */}
+        <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 pt-20 pb-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center">
+              <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
+                Create Stunning AI Videos & Images
               </h1>
-              <p className="mt-3 text-gray-600 dark:text-neutral-400">
-                Your AI-powered video generator for the web
+              <p className="text-xl text-gray-600 dark:text-neutral-400 mb-8 max-w-3xl mx-auto">
+                Transform your ideas into reality with cutting-edge AI technology. Generate professional videos and images in seconds.
               </p>
-            </div>
-
-            {/* Video Generation Form */}
-            <div className="mt-10 max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="space-y-6 min-w-0">
-                {/* Prompt Input */}
-                <div className="relative w-full min-w-0">
-                  <Textarea
-                    rows={1}
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    className="w-full resize-none pr-20 max-h-24 overflow-y-auto min-w-0 break-words"
-                    placeholder="Describe the video you want to create... (e.g., A monkey using a smartphone to showcase a new app)"
-                    style={{
-                      minHeight: "4rem",
-                      maxHeight: "9rem", // 4 rows * 1.5rem line height
-                      lineHeight: "1.5rem",
-                      wordWrap: "break-word",
-                      overflowWrap: "break-word",
-                    }}
-                  />
-                  <div className="absolute top-3 end-3 flex gap-2">
-                    <label
-                      htmlFor="image-upload"
-                      className="size-8 inline-flex justify-center items-center rounded-md border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 cursor-pointer transition-colors dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-white dark:hover:bg-neutral-800"
-                      title="Upload reference image"
-                    >
-                      <Image size={16} />
-                    </label>
-                    <input
-                      type="file"
-                      id="image-upload"
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                    />
-                  </div>
-                </div>
-
-                {/* Image Preview */}
-                {selectedImage && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-700 dark:text-neutral-300">
-                        Reference Image
-                      </h3>
-                      <button
-                        onClick={clearImage}
-                        className="text-gray-400 hover:text-gray-600 dark:text-neutral-500 dark:hover:text-neutral-300 text-lg"
-                        title="Remove image"
-                      >
-                        ×
-                      </button>
-                    </div>
-
-                    <div className="relative bg-gray-50 dark:bg-neutral-800 rounded-lg p-3">
-                      <div className="flex items-start gap-3">
-                        {/* Image Preview */}
-                        <div className="flex-shrink-0">
-                          {imagePreview ? (
-                            <img
-                              src={imagePreview}
-                              alt="Preview"
-                              className="w-20 h-20 object-cover rounded-md border border-gray-200 dark:border-neutral-700"
-                              onLoad={() =>
-                                console.log("Image loaded successfully")
-                              }
-                              onError={() =>
-                                console.log("Image failed to load")
-                              }
-                            />
-                          ) : (
-                            <div className="w-20 h-20 bg-gray-200 dark:bg-neutral-700 rounded-md border border-gray-200 dark:border-neutral-700 flex items-center justify-center">
-                              <Image
-                                size={24}
-                                className="text-gray-500 dark:text-neutral-400"
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* File Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                            {selectedImage.name}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-neutral-400">
-                            {(selectedImage.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-neutral-400 mt-1">
-                            This image will be used as a reference for video
-                            generation
-                          </p>
-                          {/* Debug info */}
-                          <p className="text-xs text-gray-400 dark:text-neutral-500 mt-1">
-                            Preview: {imagePreview ? "Ready" : "Loading..."}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Aspect Ratio Selection */}
-                <div className="space-y-3">
-                  <label className="text-sm font-medium text-gray-700 dark:text-neutral-300">
-                    Aspect Ratio
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="aspectRatio"
-                        value="16:9"
-                        checked={aspectRatio === "16:9"}
-                        onChange={(e) =>
-                          setAspectRatio(e.target.value as "16:9")
-                        }
-                        className="sr-only"
-                      />
-                      <div
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                          aspectRatio === "16:9"
-                            ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/20 dark:text-blue-300"
-                            : "border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                        }`}
-                      >
-                        <Monitor size={16} />
-                        <span className="text-sm font-medium">
-                          16:9 (Landscape)
-                        </span>
-                      </div>
-                    </label>
-
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="aspectRatio"
-                        value="9:16"
-                        checked={aspectRatio === "9:16"}
-                        onChange={(e) =>
-                          setAspectRatio(e.target.value as "9:16")
-                        }
-                        className="sr-only"
-                      />
-                      <div
-                        className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                          aspectRatio === "9:16"
-                            ? "border-blue-500 bg-blue-50 text-blue-700 dark:border-blue-400 dark:bg-blue-900/20 dark:text-blue-300"
-                            : "border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
-                        }`}
-                      >
-                        <Smartphone size={16} />
-                        <span className="text-sm font-medium">
-                          9:16 (Portrait)
-                        </span>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Generate Button */}
-                <Button
-                  onClick={handleGenerate}
-                  disabled={!prompt.trim()}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Sparkles size={16} className="mr-2" />
-                  Generate Video
-                  <span className="ml-2 text-xs opacity-75">(10 tokens)</span>
-                </Button>
-
-                {/* Important Note */}
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 dark:text-neutral-400">
-                    Generated videos are 8 seconds long. Audio generation may vary depending on content.
-                  </p>
-                </div>
+              <div className="flex gap-4 justify-center">
+                <Link href="/auth/signin">
+                  <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white">
+                    Get Started Free
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link href="/pricing">
+                  <Button size="lg" variant="outline">
+                    View Pricing
+                  </Button>
+                </Link>
               </div>
             </div>
-            {/* End Video Generation Form */}
           </div>
+        </div>
 
-          {/* Samples or Result */}
-          <div className="mt-10 max-w-2xl w-full mx-auto px-4 sm:px-6 lg:px-8">
-            {!generatedVideoUrl && !isGenerating && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-neutral-300 text-center">
-                  Sample Videos
-                </h3>
-                <VideoCarousel videos={sampleVideos} />
-              </div>
-            )}
-            {isGenerating && (
-              <div className="space-y-4 py-10">
-                <div className="text-center">
-                  <div className="w-6 h-6 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin mx-auto mb-4" />
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {generationStatus}
-                  </p>
-                  <div className="w-full max-w-md mx-auto bg-gray-200 dark:bg-neutral-700 rounded-full h-2">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${generationProgress}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {generationProgress}% complete
-                  </p>
-                  <div className="text-center text-sm text-muted-foreground">
-                    This usually takes about 3 minutes. Please don't close this
-                    page.
-                  </div>
+        {/* Features Section */}
+        <div className="py-20 bg-white dark:bg-gray-900">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-12">
+              Powerful AI Tools at Your Fingertips
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+                <div className="inline-flex p-4 bg-blue-100 dark:bg-blue-900/20 rounded-full mb-4">
+                  <Video className="h-8 w-8 text-blue-600 dark:text-blue-400" />
                 </div>
-              </div>
-            )}
-            {generatedVideoUrl && (
-              <div className="space-y-3">
-                <h3 className="text-sm font-medium text-gray-700 dark:text-neutral-300 text-center">
-                  Your Video
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                  AI Video Generation
                 </h3>
-                <div className="relative aspect-[9/16] sm:aspect-[16/9] w-full overflow-hidden rounded-xl border bg-black">
-                  <video
-                    className="h-full w-full object-contain"
-                    controls
-                    autoPlay
-                  >
-                    <source src={generatedVideoUrl} type="video/mp4" />
-                  </video>
+                <p className="text-gray-600 dark:text-neutral-400">
+                  Create professional 8-second videos from text prompts using Google Veo3 technology.
+                </p>
+              </Card>
+
+              <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+                <div className="inline-flex p-4 bg-purple-100 dark:bg-purple-900/20 rounded-full mb-4">
+                  <ImageIcon className="h-8 w-8 text-purple-600 dark:text-purple-400" />
                 </div>
-              </div>
-            )}
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                  Image Generation
+                </h3>
+                <p className="text-gray-600 dark:text-neutral-400">
+                  Generate stunning images from text or transform existing images with AI guidance.
+                </p>
+              </Card>
+
+              <Card className="p-8 text-center hover:shadow-lg transition-shadow">
+                <div className="inline-flex p-4 bg-green-100 dark:bg-green-900/20 rounded-full mb-4">
+                  <Zap className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                  Fast & Affordable
+                </h3>
+                <p className="text-gray-600 dark:text-neutral-400">
+                  Pay only for what you use with our credit-based system. Starting from just ₹150.
+                </p>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Section */}
+        <div className="py-20 bg-gradient-to-r from-blue-600 to-purple-600">
+          <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+            <h2 className="text-4xl font-bold text-white mb-6">
+              Ready to Create Something Amazing?
+            </h2>
+            <p className="text-xl text-blue-100 mb-8">
+              Join thousands of creators using AI to bring their ideas to life.
+            </p>
+            <Link href="/auth/signin">
+              <Button size="lg" variant="secondary" className="bg-white text-blue-600 hover:bg-gray-100">
+                Start Creating Now
+                <Sparkles className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
-      {/* End Content */}
-    </>
-  );
-};
+    );
+  }
 
-export default page;
+  // Dashboard for logged-in users
+  return (
+    <div className="min-h-screen pt-20 pb-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Welcome Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            Welcome back, {session.user?.name}!
+          </h1>
+          <p className="text-gray-600 dark:text-neutral-400">
+            Here's what's happening with your account
+          </p>
+        </div>
+
+        {/* Stats Cards */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i} className="p-6 animate-pulse">
+                <div className="h-12 bg-gray-200 dark:bg-neutral-700 rounded mb-4"></div>
+                <div className="h-8 bg-gray-200 dark:bg-neutral-700 rounded"></div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                  <Zap className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-neutral-400 mb-1">Current Tokens</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                {stats?.currentTokens || 0}
+              </p>
+            </Card>
+
+            <Card className="p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                  <Video className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-neutral-400 mb-1">Videos Generated</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                {stats?.totalVideos || 0}
+              </p>
+            </Card>
+
+            <Card className="p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <ImageIcon className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-neutral-400 mb-1">Images Generated</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                {stats?.totalImages || 0}
+              </p>
+            </Card>
+
+            <Card className="p-6 hover:shadow-lg transition-shadow">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
+                  <TrendingUp className="h-6 w-6 text-orange-600 dark:text-orange-400" />
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-neutral-400 mb-1">Tokens Used</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                {stats?.tokensUsed || 0}
+              </p>
+            </Card>
+          </div>
+        )}
+
+        {/* Quick Actions */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Link href="/video">
+              <Card className="p-6 hover:shadow-lg transition-all hover:scale-105 cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
+                    <Video className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Generate Video</h3>
+                    <p className="text-sm text-gray-600 dark:text-neutral-400">10 tokens per video</p>
+                  </div>
+                </div>
+              </Card>
+            </Link>
+
+            <Link href="/images">
+              <Card className="p-6 hover:shadow-lg transition-all hover:scale-105 cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
+                    <ImageIcon className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Generate Image</h3>
+                    <p className="text-sm text-gray-600 dark:text-neutral-400">1 token per image</p>
+                  </div>
+                </div>
+              </Card>
+            </Link>
+
+            <Link href="/pricing">
+              <Card className="p-6 hover:shadow-lg transition-all hover:scale-105 cursor-pointer">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                    <CreditCard className="h-6 w-6 text-green-600 dark:text-green-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">Buy Tokens</h3>
+                    <p className="text-sm text-gray-600 dark:text-neutral-400">Starting from ₹150</p>
+                  </div>
+                </div>
+              </Card>
+            </Link>
+          </div>
+        </div>
+
+        {/* Low Balance Warning */}
+        {stats && stats.currentTokens < 10 && (
+          <Card className="p-6 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+            <div className="flex items-center gap-4">
+              <Zap className="h-8 w-8 text-yellow-600 dark:text-yellow-400" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-yellow-900 dark:text-yellow-200 mb-1">
+                  Low Token Balance
+                </h3>
+                <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                  You have {stats.currentTokens} tokens remaining. Purchase more to continue creating.
+                </p>
+              </div>
+              <Link href="/pricing">
+                <Button variant="outline" className="border-yellow-600 text-yellow-600 hover:bg-yellow-100 dark:border-yellow-400 dark:text-yellow-400">
+                  Buy Tokens
+                </Button>
+              </Link>
+            </div>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
